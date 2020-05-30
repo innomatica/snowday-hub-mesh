@@ -1,0 +1,37 @@
+#!/bin/sh
+
+uci -q batch <<-EOF > /dev/null
+	# dhcp
+	set dhcp.lan.ignore='1'
+	commit dhcp
+	# network
+	set network.lan.ifname='eth0 mesh0'
+	set network.lan.proto='dhcp'
+	delete network.lan.ipaddr
+	delete network.lan.netmask
+	commit network
+	# wireless device
+	set wireless.@wifi-device[0].disabled='0'
+	# wireless default interface
+	set wireless.@wifi-iface[0].device='radio0'
+	set wireless.@wifi-iface[0].ifname='wlan0'
+	set wireless.@wifi-iface[0].network='lan'
+	set wireless.@wifi-iface[0].mode='ap'
+	set wireless.@wifi-iface[0].ssid='OpenWrt'
+	set wireless.@wifi-iface[0].encryption='psk2'
+	set wireless.@wifi-iface[0].key='yourApKey'
+	set wireless.@wifi-iface[0].disabled='1'
+	# wireless mesh
+	add wireless wifi-iface
+	rename wireless.@wifi-iface[-1]='mesh0'
+	set wireless.@wifi-iface[-1].device='radio0'
+	set wireless.@wifi-iface[-1].ifname='mesh0'
+	set wireless.@wifi-iface[-1].network='nwi_mesh0'
+	set wireless.@wifi-iface[-1].mode='mesh'
+	set wireless.@wifi-iface[-1].mesh_id='OpenWrtMesh'
+	set wireless.@wifi-iface[-1].encryption='psk/aes'
+	set wireless.@wifi-iface[-1].key='yourMeshKey'
+	commit wireless
+EOF
+
+exit 0

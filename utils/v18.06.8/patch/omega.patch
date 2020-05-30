@@ -1,0 +1,156 @@
+commit d82eb2d39571f24948f2cf76e40fb00fd3146de5
+Author: Sungjune Lee <sungjune@innomatic.ca>
+Date:   Fri Apr 24 22:07:51 2020 +0900
+
+    patch for omega devices
+
+diff --git a/target/linux/ramips/base-files/etc/board.d/02_network b/target/linux/ramips/base-files/etc/board.d/02_network
+index 50d3a89bd8..e73f0db448 100755
+--- a/target/linux/ramips/base-files/etc/board.d/02_network
++++ b/target/linux/ramips/base-files/etc/board.d/02_network
+@@ -57,6 +57,7 @@ ramips_setup_interfaces()
+ 	ncs601w|\
+ 	omega2 | \
+ 	omega2p | \
++	omega2pro | \
+ 	timecloud|\
+ 	w150m|\
+ 	widora,neo-16m|\
+@@ -513,7 +514,8 @@ ramips_setup_macs()
+ 		lan_mac=$(macaddr_add "$lan_mac" 2)
+ 		;;
+ 	omega2|\
+-	omega2p)
++	omega2p| \
++	omega2pro)
+ 		wan_mac=$(mtd_get_mac_binary factory 4)
+ 		lan_mac=$(mtd_get_mac_binary factory 46)
+ 		;;
+diff --git a/target/linux/ramips/base-files/etc/diag.sh b/target/linux/ramips/base-files/etc/diag.sh
+index 2f51add331..80b51cf329 100644
+--- a/target/linux/ramips/base-files/etc/diag.sh
++++ b/target/linux/ramips/base-files/etc/diag.sh
+@@ -228,7 +228,8 @@ get_status_led() {
+ 		status_led="$boardname:blue:status"
+ 		;;
+ 	omega2| \
+-	omega2p)
++	omega2p| \
++	omega2pro)
+ 		status_led="$boardname:amber:system"
+ 		;;
+ 	oy-0001|\
+diff --git a/target/linux/ramips/base-files/lib/ramips.sh b/target/linux/ramips/base-files/lib/ramips.sh
+index 5741cbd2ee..7fb64b976d 100755
+--- a/target/linux/ramips/base-files/lib/ramips.sh
++++ b/target/linux/ramips/base-files/lib/ramips.sh
+@@ -382,6 +382,9 @@ ramips_board_detect() {
+ 	*"Onion Omega2+")
+ 		name="omega2p"
+ 		;;
++	*"Onion Omega2 Pro")
++		name="omega2pro"
++		;;
+ 	*"OY-0001")
+ 		name="oy-0001"
+ 		;;
+diff --git a/target/linux/ramips/base-files/lib/upgrade/platform.sh b/target/linux/ramips/base-files/lib/upgrade/platform.sh
+index ffdc5e73e0..60ea4c3c1f 100755
+--- a/target/linux/ramips/base-files/lib/upgrade/platform.sh
++++ b/target/linux/ramips/base-files/lib/upgrade/platform.sh
+@@ -119,6 +119,7 @@ platform_check_image() {
+ 	nw718|\
+ 	omega2|\
+ 	omega2p|\
++	omega2pro|\
+ 	oy-0001|\
+ 	pbr-d1|\
+ 	pbr-m1|\
+diff --git a/target/linux/ramips/dts/OMEGA2.dtsi b/target/linux/ramips/dts/OMEGA2.dtsi
+index 73a6908792..7ad762ef9f 100644
+--- a/target/linux/ramips/dts/OMEGA2.dtsi
++++ b/target/linux/ramips/dts/OMEGA2.dtsi
+@@ -123,7 +123,6 @@
+ 		factory: partition@40000 {
+ 			label = "factory";
+ 			reg = <0x40000 0x10000>;
+-			read-only;
+ 		};
+
+ 		firmware: partition@50000 {
+diff --git a/target/linux/ramips/dts/OMEGA2P.dts b/target/linux/ramips/dts/OMEGA2P.dts
+index 53e8377292..5a929addf6 100644
+--- a/target/linux/ramips/dts/OMEGA2P.dts
++++ b/target/linux/ramips/dts/OMEGA2P.dts
+@@ -13,7 +13,7 @@
+ };
+
+ &firmware {
+-	reg = <0x50000 0x1fb0000>;
++	reg = <0x50000 0x1f30000>;
+ };
+
+ &system_led {
+diff --git a/target/linux/ramips/dts/OMEGA2PRO.dts b/target/linux/ramips/dts/OMEGA2PRO.dts
+new file mode 100644
+index 0000000000..34f39491bc
+--- /dev/null
++++ b/target/linux/ramips/dts/OMEGA2PRO.dts
+@@ -0,0 +1,39 @@
++/dts-v1/;
++
++#include "OMEGA2.dtsi"
++
++/ {
++	model = "Onion Omega2 Pro";
++
++	memory@0 {
++		device_type = "memory";
++		reg = <0x0 0x8000000>;
++	};
++
++	new-leds {
++		compatible = "gpio-leds";
++
++		wifi {
++					label = "omega2pro:blue:wifi";
++					gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
++			};
++	};
++};
++
++&firmware {
++	reg = <0x50000 0xfb0000>;
++};
++
++&system_led {
++	label = "omega2pro:amber:system";
++	gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
++};
++
++&pinctrl {
++        state_default: pinctrl0 {
++                uart2 {
++			ralink,group = "uart2";
++                        ralink,function = "gpio";
++                };
++        };
++};
+diff --git a/target/linux/ramips/image/mt76x8.mk b/target/linux/ramips/image/mt76x8.mk
+index 21c5357a08..5a49aece93 100644
+--- a/target/linux/ramips/image/mt76x8.mk
++++ b/target/linux/ramips/image/mt76x8.mk
+@@ -106,6 +106,13 @@ define Device/omega2p
+ endef
+ TARGET_DEVICES += omega2p
+
++define Device/omega2pro
++  DTS := OMEGA2PRO
++  IMAGE_SIZE := $(ralink_default_fw_size_16M)
++  DEVICE_TITLE := Onion Omega2 Pro
++  DEVICE_PACKAGES:= kmod-usb2 kmod-usb-ohci uboot-envtools kmod-sdhci-mt7620
++endef
++TARGET_DEVICES += omega2pro
+ define Device/pbr-d1
+   DTS := PBR-D1
+   IMAGE_SIZE := $(ralink_default_fw_size_16M)
